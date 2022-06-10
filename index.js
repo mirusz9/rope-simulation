@@ -1,183 +1,247 @@
+const screenWidth = 1000;
+const screenHeight = 1000;
+
 function _dist(x1, y1, x2, y2) {
-  const dx = x1 - x2;
-  const dy = y1 - y2;
-  return Math.sqrt(dx * dx + dy * dy);
+	const dx = x1 - x2;
+	const dy = y1 - y2;
+	return Math.sqrt(dx * dx + dy * dy);
 }
 
 class mPoint {
-  constructor(x, y, isLocked) {
-    this.x = x;
-    this.px = x;
-    this.y = y;
-    this.py = y;
-    this.locked = isLocked;
-  }
+	constructor(x, y, isLocked) {
+		this.x = x;
+		this.px = x;
+		this.y = y;
+		this.py = y;
+		this.locked = isLocked;
+	}
 
-  update() {
-    if (!this.locked) {
-      const px = this.x;
-      const py = this.y;
-      this.x += this.x - this.px;
-      this.y += this.y - this.py;
-      this.y += 0.002 * deltaTime * deltaTime;
-      this.px = px;
-      this.py = py;
-    }
-  }
+	update() {
+		if (!this.locked) {
+			const px = this.x;
+			const py = this.y;
+			this.x += this.x - this.px;
+			this.y += this.y - this.py;
+			this.y += (gravity / 10000) * deltaTime * deltaTime;
+			this.px = px;
+			this.py = py;
+		}
+	}
 }
 
 class Stick {
-  constructor(p1, p2) {
-    this.p1 = p1;
-    this.p2 = p2;
-    this.length = _dist(p1.x, p1.y, p2.x, p2.y);
-  }
+	constructor(p1, p2) {
+		this.p1 = p1;
+		this.p2 = p2;
+		this.length = _dist(p1.x, p1.y, p2.x, p2.y);
+	}
 
-  update() {
-    const cx = (this.p1.x + this.p2.x) / 2;
-    const cy = (this.p1.y + this.p2.y) / 2;
-    const dx = this.p1.x - this.p2.x;
-    const dy = this.p1.y - this.p2.y;
-    const stretchedLength = Math.sqrt(dx * dx + dy * dy);
-    const lengthRatio = this.length / stretchedLength;
+	update() {
+		const cx = (this.p1.x + this.p2.x) / 2;
+		const cy = (this.p1.y + this.p2.y) / 2;
+		const dx = this.p1.x - this.p2.x;
+		const dy = this.p1.y - this.p2.y;
+		const stretchedLength = Math.sqrt(dx * dx + dy * dy);
+		const lengthRatio = this.length / stretchedLength;
 
-    if (!this.p1.locked) {
-      this.p1.x = cx + (dx * lengthRatio) / 2;
-      this.p1.y = cy + (dy * lengthRatio) / 2;
-    }
-    if (!this.p2.locked) {
-      this.p2.x = cx - (dx * lengthRatio) / 2;
-      this.p2.y = cy - (dy * lengthRatio) / 2;
-    }
-  }
+		if (!this.p1.locked) {
+			this.p1.x = cx + (dx * lengthRatio) / 2;
+			this.p1.y = cy + (dy * lengthRatio) / 2;
+		}
+		if (!this.p2.locked) {
+			this.p2.x = cx - (dx * lengthRatio) / 2;
+			this.p2.y = cy - (dy * lengthRatio) / 2;
+		}
+	}
 }
+
+const meshPoints = [];
+const meshSticks = [];
+const meshSizeX = 30;
+const increment = (screenWidth - 100) / meshSizeX;
+// Add all the points
+for (let y = 50; y < screenHeight - 200; y += increment) {
+	for (let x = 50; x < screenWidth - 50; x += increment) {
+		meshPoints.push(
+			new mPoint(x, y, y == 50 && ((x - 50) / increment) % (meshSizeX / 5) == 0 ? true : false)
+		);
+	}
+}
+
+meshPoints[meshSizeX - 1].locked = true;
+
+const meshSizeY = meshPoints.length / meshSizeX;
+
+// horizontal sticks
+for (let x = 0; x < meshSizeX - 1; x++) {
+	for (let y = 0; y < meshSizeY; y++) {
+		const index = y * meshSizeX + x;
+		meshSticks.push(new Stick(meshPoints[index], meshPoints[index + 1]));
+	}
+}
+// vertical sticks
+for (let x = 0; x < meshSizeX; x++) {
+	for (let y = 0; y < meshSizeY - 1; y++) {
+		const index = y * meshSizeX + x;
+		meshSticks.push(new Stick(meshPoints[index], meshPoints[index + meshSizeX]));
+	}
+}
+_serialize(meshPoints, meshSticks, 'Mesh');
 
 let points;
 let sticks;
 
 let saveBtn, loadBtn;
+let select;
+let iterationSlider;
+let gravitySlider;
 let guiWidth = 104,
-  guiHeight = 40;
+	guiHeight = 40;
+let sliderAmt;
+
+let gravity = 9.8;
 
 function setup() {
-  createCanvas(1000, 1000);
-  loadState();
-  saveBtn = createButton("Save");
-  saveBtn.position(35, 35);
-  saveBtn.mousePressed(saveState);
+	createCanvas(screenWidth, screenHeight);
 
-  loadBtn = createButton("Load");
-  loadBtn.position(40 + saveBtn.width, 35);
-  loadBtn.mousePressed(loadState);
-  stroke(255);
+	saveBtn = createButton('Save');
+	// saveBtn.position(35, 35);
+	// saveBtn.mousePressed(saveState);
+
+	loadBtn = createButton('Load');
+	// loadBtn.position(40 + saveBtn.width, 35);
+	loadBtn.mousePressed(loadState);
+
+	select = createSelect();
+	// select.position(35, 45 + 40);
+	select.option('Mesh');
+
+	iterationSlider = createSlider(1, 200, 3);
+	gravitySlider = createSlider(0, 200, 9.8);
+	sliderAmt = createP(iterationSlider.value());
+
+	// sel.option('adsljf');
+	// sel.option('adsljf');
+	loadState();
+	stroke(255);
 }
 
-function saveState() {
-  const serializedPoints = points.map((point) => [
-    point.x,
-    point.y,
-    point.locked ? true : false,
-  ]);
-  const serializedSticks = sticks.map((stick) => {
-    const p1I = points.findIndex((v) => v.x == stick.p1.x && v.y == stick.p1.y);
-    const p2I = points.findIndex((v) => v.x == stick.p2.x && v.y == stick.p2.y);
-    return [p1I, p2I];
-  });
-  localStorage.setItem("points", JSON.stringify(serializedPoints));
-  localStorage.setItem("sticks", JSON.stringify(serializedSticks));
+function getSaves() {
+	return localStorage.getItem('saves');
+}
+
+function _serialize(_points, _sticks, _name) {
+	const serializedPoints = _points.map((point) => [point.x, point.y, point.locked ? true : false]);
+	const serializedSticks = _sticks.map((stick) => {
+		const p1I = _points.findIndex((v) => v.x == stick.p1.x && v.y == stick.p1.y);
+		const p2I = _points.findIndex((v) => v.x == stick.p2.x && v.y == stick.p2.y);
+		return [p1I, p2I];
+	});
+	localStorage.setItem(`${_name}-points`, JSON.stringify(serializedPoints));
+	localStorage.setItem(`${_name}-sticks`, JSON.stringify(serializedSticks));
 }
 
 function loadState() {
-  const localStoragePoints = localStorage.getItem("points");
-  const localStorageSticks = localStorage.getItem("sticks");
-  if (localStoragePoints && localStorageSticks) {
-    points = JSON.parse(localStoragePoints).map((p) => new mPoint(...p));
-    sticks = JSON.parse(localStorageSticks).map(
-      (s) => new Stick(points[s[0]], points[s[1]])
-    );
-  } else {
-    points = [];
-    sticks = [];
-  }
-  isSimulating = false;
+	const item = select.value();
+	console.log(item);
+
+	const localStoragePoints = localStorage.getItem(`${item}-points`);
+	const localStorageSticks = localStorage.getItem(`${item}-sticks`);
+	if (localStoragePoints && localStorageSticks) {
+		points = JSON.parse(localStoragePoints).map((p) => new mPoint(...p));
+		sticks = JSON.parse(localStorageSticks).map((s) => new Stick(points[s[0]], points[s[1]]));
+	} else {
+		points = [];
+		sticks = [];
+	}
+	isSimulating = false;
 }
 
 let prevPoint;
 let isSimulating = false;
 
 function mousePressed() {
-  let currPoint;
-  if (isSimulating) return;
-  if (
-    mouseX >= 25 &&
-    mouseX <= 25 + guiWidth &&
-    mouseY >= 25 &&
-    mouseY <= 25 + guiHeight
-  ) {
-    return;
-  }
-  for (p of points) {
-    if (dist(p.x, p.y, mouseX, mouseY) <= 10) {
-      currPoint = p;
-    }
-  }
+	let currPoint;
+	if (isSimulating) return;
+	// if (mouseX >= 25 && mouseX <= 25 + guiWidth && mouseY >= 25 && mouseY <= 25 + guiHeight) {
+	// 	return;
+	// }
+	for (p of points) {
+		if (dist(p.x, p.y, mouseX, mouseY) <= 10) {
+			currPoint = p;
+		}
+	}
 
-  if (currPoint) {
-    if (prevPoint) {
-      if (prevPoint.x == currPoint.x && prevPoint.y == currPoint.y) {
-        currPoint.locked = !currPoint.locked;
-        prevPoint = null;
-      } else {
-        sticks.push(new Stick(currPoint, prevPoint));
-        prevPoint = null;
-      }
-    } else {
-      prevPoint = currPoint;
-    }
-  } else {
-    points.push(new mPoint(mouseX, mouseY, false));
-    prevPoint = null;
-  }
+	if (currPoint) {
+		if (prevPoint) {
+			if (prevPoint.x == currPoint.x && prevPoint.y == currPoint.y) {
+				currPoint.locked = !currPoint.locked;
+				prevPoint = null;
+			} else {
+				sticks.push(new Stick(currPoint, prevPoint));
+				prevPoint = null;
+			}
+		} else {
+			prevPoint = currPoint;
+		}
+	} else {
+		points.push(new mPoint(mouseX, mouseY, false));
+		prevPoint = null;
+	}
 }
 
 function keyPressed() {
-  if (keyCode == ENTER) {
-    isSimulating = true;
-    saveState();
-  } else if (keyCode == DELETE) {
-    points = [];
-    sticks = [];
-  }
+	if (keyCode == ENTER) {
+		isSimulating = true;
+	} else if (keyCode == DELETE) {
+		points = [];
+		sticks = [];
+	}
 }
 
 function draw() {
-  if (isSimulating) {
-    for (currPoint of points) {
-      currPoint.update();
-    }
+	gravity = gravitySlider.value();
 
-    for (let i = 0; i < 2; i++) {
-      for (stick of sticks) {
-        stick.update();
-      }
-    }
-  }
+	if (isSimulating) {
+		for (currPoint of points) {
+			currPoint.update();
+		}
 
-  background(100);
+		for (let i = 0; i < iterationSlider.value(); i++) {
+			for (stick of sticks) {
+				stick.update();
+			}
+		}
+	}
 
-  strokeWeight(2);
-  for (const stick of sticks) {
-    const { x: x1, y: y1 } = stick.p1;
-    const { x: x2, y: y2 } = stick.p2;
-    line(x1, y1, x2, y2);
-  }
+	background(200);
 
-  fill(50);
-  rect(20, 20, guiWidth, guiHeight);
+	strokeWeight(2);
+	for (const stick of sticks) {
+		const { x: x1, y: y1 } = stick.p1;
+		const { x: x2, y: y2 } = stick.p2;
+		line(x1, y1, x2, y2);
+	}
 
-  strokeWeight(0);
-  for (const currPoint of points) {
-    fill(currPoint.locked ? color(255, 0, 0) : 50);
-    circle(currPoint.x, currPoint.y, 10);
-  }
+	// fill(50);
+	// rect(20, 20, guiWidth, guiHeight);
+
+	strokeWeight(0);
+	colorMode(HSB);
+	for (let i = 0; i < points.length; i++) {
+		const currPoint = points[i];
+		const x = i % meshSizeX;
+		const y = Math.floor(i / meshSizeX);
+		fill(
+			currPoint.locked
+				? color(0, 255, 255)
+				: color((((x + y * 2) * meshSizeX) / 5) % 255, 255, 255, 0.1)
+		);
+		circle(currPoint.x, currPoint.y, 50);
+	}
+	colorMode(RGB);
+
+	sliderAmt.html(
+		`iterations per frame: ${iterationSlider.value()}, gravity: ${gravitySlider.value()}`
+	);
 }
