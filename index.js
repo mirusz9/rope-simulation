@@ -65,7 +65,6 @@ function setup() {
   saveBtn = createButton("Save");
   saveBtn.position(35, 35);
   saveBtn.mousePressed(saveState);
-  console.log(saveBtn.elt);
 
   loadBtn = createButton("Load");
   loadBtn.position(40 + saveBtn.width, 35);
@@ -144,10 +143,7 @@ function mousePressed() {
 function keyPressed() {
   if (keyCode == ENTER) {
     isSimulating = true;
-
     saveState();
-    // localStorage.setItem("points", JSON.stringify(serializedPoints));
-    // localStorage.setItem("sticks", JSON.stringify(serializedSticks));
   } else if (keyCode == DELETE) {
     points = [];
     sticks = [];
@@ -176,6 +172,7 @@ function draw() {
     line(x1, y1, x2, y2);
   }
 
+  fill(50);
   rect(20, 20, guiWidth, guiHeight);
 
   strokeWeight(0);
